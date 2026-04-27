@@ -5,7 +5,7 @@ Token-efficient codebase audit CLI.
 The mistake is reading code first. This tool forces the better workflow:
 
 ```text
-cheap signals -> repo map -> attack surfaces -> targeted reads -> ledger-only memory -> repeat
+cheap signals -> next -> inspect -> Claude -> ledger:add -> report
 ```
 
 ## Install
@@ -35,6 +35,8 @@ audit-kit surface:list
 audit-kit next auth
 audit-kit inspect <earned-files>
 audit-kit prompt auth
+audit-kit ledger:add ...
+audit-kit report
 ```
 
 Then paste `.audit-kit/prompts/claude-auth-*.md` into Claude Code.
@@ -134,6 +136,22 @@ Creates a Claude-ready prompt using:
 - selected surface
 - current audit ledger
 
+### `audit-kit ledger:export`
+
+Exports the ledger without mutating it.
+
+- `--format md`: markdown table plus detail blocks
+- `--format json`: raw ledger JSON
+
+### `audit-kit report`
+
+Builds a markdown audit report from:
+
+- `.audit-kit/ledger.json`
+- `.audit-kit/repo-map.md` when present
+
+Writes `.audit-kit/reports/report-<timestamp>.md`.
+
 ## Smoke Test Another Repo
 
 ```bash
@@ -174,7 +192,11 @@ audit-kit ledger:add \
   --file "src/api/stripe/webhook.ts" \
   --evidence "No event.id persistence before side effects" \
   --fix "Store event.id with unique constraint before processing" \
-  --confidence high
+  --impact "Duplicate webhook processing can create duplicate side effects" \
+  --confidence high \
+  --next-file "src/jobs/reconcile-payments.ts" \
+  --open-question "Is there any upstream idempotency key storage?" \
+  --files-inspected src/api/stripe/webhook.ts src/jobs/reconcile-payments.ts
 ```
 
 ### `audit-kit ledger:list`
@@ -193,6 +215,12 @@ Good:
 
 ```text
 Audit the payment webhook for signature verification, idempotency, DB writes, retries, and partial failure. Only inspect files that earned inspection through metadata, grep, git churn, or route relevance.
+```
+
+## Final Workflow
+
+```text
+cheap signals -> next -> inspect -> Claude -> ledger:add -> report
 ```
 
 ## Severity Filter

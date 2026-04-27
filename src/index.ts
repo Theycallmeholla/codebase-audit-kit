@@ -9,8 +9,9 @@ import { scanProject } from "./lib/scan.js";
 import { createMap } from "./lib/map.js";
 import { createNextPrompt } from "./lib/next.js";
 import { createSurfacePrompt, listSurfaces } from "./lib/surface.js";
-import { addFinding, listFindings } from "./lib/ledger.js";
+import { addFinding, exportLedger, listFindings } from "./lib/ledger.js";
 import { createClaudePrompt } from "./lib/prompt.js";
+import { createReport } from "./lib/report.js";
 
 const program = new Command();
 
@@ -110,11 +111,29 @@ program
   });
 
 program
+  .command("report")
+  .description("Build a markdown audit report from the ledger")
+  .option("-p, --path <path>", "target repo path", process.cwd())
+  .action(async (opts) => {
+    const out = await createReport(opts.path);
+    console.log(out);
+  });
+
+program
   .command("ledger:list")
   .description("List audit findings")
   .option("-p, --path <path>", "target repo path", process.cwd())
   .action(async (opts) => {
     console.log(await listFindings(opts.path));
+  });
+
+program
+  .command("ledger:export")
+  .description("Export the audit ledger as markdown or JSON")
+  .option("-p, --path <path>", "target repo path", process.cwd())
+  .option("--format <format>", "md | json", "md")
+  .action(async (opts) => {
+    console.log(await exportLedger(opts.path, opts.format === "json" ? "json" : "md"));
   });
 
 program
@@ -126,10 +145,26 @@ program
   .requiredOption("--evidence <evidence>", "exact evidence")
   .requiredOption("--fix <fix>", "minimal fix")
   .option("--confidence <confidence>", "high | medium | low", "medium")
+  .option("--impact <impact>", "customer or business impact")
+  .option("--next-file <nextFile>", "next file to inspect")
+  .option("--open-question <openQuestion>", "open question to resolve")
+  .option("--files-inspected <paths...>", "files inspected before confirming this finding")
   .option("--file <file>", "file path", "")
   .option("-p, --path <path>", "target repo path", process.cwd())
   .action(async (opts) => {
-    await addFinding(opts.path, opts);
+    await addFinding(opts.path, {
+      surface: opts.surface,
+      severity: opts.severity,
+      title: opts.title,
+      file: opts.file,
+      evidence: opts.evidence,
+      fix: opts.fix,
+      confidence: opts.confidence,
+      impact: opts.impact,
+      nextFile: opts.nextFile,
+      openQuestion: opts.openQuestion,
+      filesInspected: opts.filesInspected
+    });
     console.log(pc.green("Finding added."));
   });
 

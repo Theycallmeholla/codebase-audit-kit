@@ -1,0 +1,105 @@
+import path from "node:path";
+import { auditDir, exists, readText, writeText } from "./fs.js";
+import { compactLedger, getSeverityBreakdown, readLedger, sortFindings, type Confidence, type Finding } from "./ledger.js";
+
+const confidenceOrder: Record<Confidence, number> = {
+  high: 0,
+  medium: 1,
+  low: 2
+};
+
+function uniqueFilesInspected(findings: Finding[]): string[] {
+  return [...new Set(findings.flatMap((finding) => finding.filesInspected ?? []).filter(Boolean))].sort();
+}
+
+function recommendedFixOrder(findings: Finding[]): Finding[] {
+  return [...sortFindings(findings)].sort((a, b) => {
+    if (a.severity !== b.severity) {
+      return a.severity.localeCompare(b.severity);
+    }
+
+    const confidenceDiff = confidenceOrder[a.confidence] - confidenceOrder[b.confidence];
+    if (confidenceDiff !== 0) {
+      return confidenceDiff;
+    }
+
+    return a.id.localeCompare(b.id);
+  });
+}
+
+function renderFindings(findings: Finding[]): string {
+  if (findings.length === 0) {
+    return "No confirmed findings yet.";
+  }
+
+  return sortFindings(findings)
+    .map((finding) => {
+      return [
+        `### ${finding.id} ${finding.title}`,
+        `- Severity: ${finding.severity}`,
+        `- Surface: ${finding.surface}`,
+        `- File: ${finding.file || "unknown"}`,
+        `- Confidence: ${finding.confidence}`,
+        `- Evidence: ${finding.evidence}`,
+        `- Minimal fix: ${finding.fix}`,
+        `- Impact: ${finding.impact || "not provided"}`,
+        `- Next file: ${finding.nextFile || "not provided"}`,
+        `- Open question: ${finding.openQuestion || "not provided"}`,
+        `- Files inspected: ${finding.filesInspected && finding.filesInspected.length > 0 ? finding.filesInspected.join(", ") : "not provided"}`
+      ].join("\n");
+    })
+    .join("\n\n");
+}
+
+export async function createReport(root: string): Promise<string> {
+  const ledger = await readLedger(root);
+  const repoMapPath = path.join(auditDir(root), "repo-map.md");
+  const repoMap = (await exists(repoMapPath)) ? await readText(repoMapPath) : "Repo map not available.";
+  const findings = sortFindings(ledger.findings);
+  const severityBreakdown = getSeverityBreakdown(findings);
+  const fixOrder = recommendedFixOrder(findings);
+  const openQuestions = findings.map((finding) => finding.openQuestion).filter((value): value is string => Boolean(value));
+  const filesInspected = uniqueFilesInspected(findings);
+
+  const report = `# Audit Report
+
+Generated: ${new Date().toISOString()}
+
+## Executive Summary
+
+${findings.length === 0 ? "No confirmed findings yet." : `${findings.length} confirmed findings recorded in the ledger.`}
+
+## Scope
+
+\`\`\`
+${repoMap.slice(0, 8000)}
+\`\`\`
+
+## Severity Breakdown
+
+- P0: ${severityBreakdown.P0}
+- P1: ${severityBreakdown.P1}
+- P2: ${severityBreakdown.P2}
+- P3: ${severityBreakdown.P3}
+
+## Findings
+
+${renderFindings(findings)}
+
+## Recommended Fix Order
+
+${fixOrder.length === 0 ? "No confirmed findings yet." : fixOrder.map((finding) => `- ${finding.id} ${finding.title} (${finding.severity}, ${finding.confidence})`).join("\n")}
+
+## Open Questions
+
+${openQuestions.length === 0 ? "No open questions recorded." : openQuestions.map((question) => `- ${question}`).join("\n")}
+
+## Appendix: Files Inspected
+
+${filesInspected.length === 0 ? "No files inspected recorded." : filesInspected.map((file) => `- ${file}`).join("\n")}
+`;
+
+  const out = path.join(auditDir(root), "reports", `report-${Date.now()}.md`);
+  await writeText(out, report);
+  return out;
+}

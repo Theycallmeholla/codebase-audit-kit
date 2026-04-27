@@ -9,6 +9,7 @@ export async function initProject(root: string): Promise<void> {
   await ensureDir(path.join(dir, "prompts"));
   await ensureDir(path.join(dir, "surfaces"));
   await ensureDir(path.join(dir, "inspections"));
+  await ensureDir(path.join(dir, "reports"));
 
   const configPath = path.join(dir, "config.json");
   if (!(await exists(configPath))) {
