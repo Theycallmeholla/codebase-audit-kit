@@ -104,4 +104,26 @@ describe("inspectFiles", () => {
 
     await expect(inspectFiles(root, ["src/leak.txt"])).rejects.toThrow(/Symlink resolves into ignored directory/);
   });
+
+  it("uses an enlarged fence when source contains triple backticks", async () => {
+    const root = await makeTempDir("audit-kit-inspect-");
+    await initProject(root);
+    await ensureDir(path.join(root, "src"));
+    const body = [
+      "export const sample = `",
+      "```ts",
+      "const x = 1;",
+      "```",
+      "`;",
+      ""
+    ].join("\n");
+    await writeFile(path.join(root, "src", "tpl.ts"), body, "utf8");
+
+    const output = await inspectFiles(root, ["src/tpl.ts"]);
+
+    expect(output).toMatch(/^## src\/tpl\.ts\n\n````\n/m);
+    expect(output).toContain("```ts");
+    expect(output).toContain("const x = 1;");
+    expect(output.trimEnd().endsWith("````")).toBe(true);
+  });
 });

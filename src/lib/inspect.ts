@@ -42,6 +42,13 @@ function sliceLines(content: string, start: number, end: number): string {
   return lines.slice(start - 1, end).join("\n");
 }
 
+function pickFence(content: string): string {
+  const runs = content.match(/`+/g) ?? [];
+  const longest = runs.reduce((max, run) => Math.max(max, run.length), 0);
+  const length = Math.max(3, longest + 1);
+  return "`".repeat(length);
+}
+
 export async function inspectFiles(root: string, filePaths: string[], maxBytes = 12000): Promise<string> {
   if (filePaths.length === 0) {
     throw new Error("Provide at least one file to inspect.");
@@ -71,8 +78,9 @@ export async function inspectFiles(root: string, filePaths: string[], maxBytes =
       const { body, truncated } = truncateUtf8(sliced, maxBytes);
       const suffix = truncated ? "\n\n[truncated]" : "";
       const header = spec.range ? `${relativePath}:${spec.range.start}-${spec.range.end}` : relativePath;
+      const fence = pickFence(body + suffix);
 
-      return `## ${header}\n\n\`\`\`\n${body}${suffix}\n\`\`\``;
+      return `## ${header}\n\n${fence}\n${body}${suffix}\n${fence}`;
     })
   );
 

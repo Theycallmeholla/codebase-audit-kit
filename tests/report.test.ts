@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { initProject } from "../src/lib/init.js";
@@ -167,5 +167,44 @@ describe("report", () => {
 
     expect(scope.split("\n").length).toBeLessThan(20);
     expect(scope).not.toContain("Grep signals");
+  });
+
+  it("ignores inspected source headings and fenced content when building the appendix", async () => {
+    const root = await makeTempDir("audit-kit-report-");
+    await initProject(root);
+    await ensureDir(path.join(root, "docs"));
+    const markdownSource = [
+      "# Title",
+      "",
+      "## Installation",
+      "",
+      "```",
+      "## Not a file",
+      "echo hi",
+      "```",
+      "",
+      "## Quickstart",
+      ""
+    ].join("\n");
+    await writeFile(path.join(root, "docs", "guide.md"), markdownSource, "utf8");
+
+    await inspectFiles(root, ["docs/guide.md"]);
+
+    const out = await createReport(root);
+    const content = await readFile(out, "utf8");
+    const appendix = content.split("## Appendix: Files Inspected")[1] ?? "";
+
+    expect(appendix).toContain("- docs/guide.md");
+    expect(appendix).not.toContain("Installation");
+    expect(appendix).not.toContain("Quickstart");
+    expect(appendix).not.toContain("Not a file");
+
+    const inspectionsDir = path.join(root, ".audit-kit", "inspections");
+    const inspectionFile = (await readdir(inspectionsDir))[0];
+    const persisted = await readFile(path.join(inspectionsDir, inspectionFile), "utf8");
+
+    expect(persisted).toMatch(/^````\n/m);
+    expect(persisted).toContain("## Not a file");
+    expect(persisted).toContain("```");
   });
 });

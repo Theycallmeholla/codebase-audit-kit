@@ -16,10 +16,22 @@ async function inspectionFiles(root: string): Promise<string[]> {
   for (const file of files) {
     if (!file.endsWith(".md")) continue;
     const content = await fs.readFile(path.join(dir, file), "utf8");
+    let fenceLen = 0;
     for (const line of content.split("\n")) {
-      const match = line.match(/^##\s+(.+?)\s*$/);
-      if (match) {
-        paths.push(match[1].trim());
+      const fenceMatch = line.match(/^(`{3,})\s*$/);
+      if (fenceMatch) {
+        const len = fenceMatch[1].length;
+        if (fenceLen === 0) {
+          fenceLen = len;
+        } else if (len === fenceLen) {
+          fenceLen = 0;
+        }
+        continue;
+      }
+      if (fenceLen > 0) continue;
+      const heading = line.match(/^##\s+(.+?)\s*$/);
+      if (heading) {
+        paths.push(heading[1].trim());
       }
     }
   }
