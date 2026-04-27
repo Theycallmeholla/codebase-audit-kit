@@ -1,9 +1,41 @@
 import path from "node:path";
 import { auditDir, exists, readText, writeText } from "./fs.js";
+import type { ScanJson } from "./scan.js";
 
-export async function createMap(root: string): Promise<string> {
+function renderScanNotes(scan: ScanJson): string {
+  return [
+    `Generated: ${scan.generatedAt}`,
+    `Files captured: ${scan.files.length}`,
+    `Metadata hits: ${scan.metadataHits.join(", ") || "none"}`,
+    "",
+    "Top file paths:",
+    ...scan.files.slice(0, 40).map((file) => `- ${file}`),
+    "",
+    "Structure:",
+    scan.tree,
+    "",
+    "Size profile:",
+    scan.cloc,
+    "",
+    "Hot files:",
+    scan.hotFiles,
+    "",
+    "Grep signals:",
+    ...scan.grepSignals.map((signal) => `- ${signal.name}: ${signal.output.slice(0, 400)}`)
+  ].join("\n");
+}
+
+export async function createMap(root: string, options?: { fromJson?: boolean }): Promise<string> {
+  const jsonPath = path.join(auditDir(root), "latest-scan.json");
   const scanPath = path.join(auditDir(root), "latest-scan.md");
-  const scan = (await exists(scanPath)) ? await readText(scanPath) : "";
+
+  let scanNotes = "";
+  if (options?.fromJson && (await exists(jsonPath))) {
+    const scan = JSON.parse(await readText(jsonPath)) as ScanJson;
+    scanNotes = renderScanNotes(scan);
+  } else {
+    scanNotes = (await exists(scanPath)) ? await readText(scanPath) : "";
+  }
 
   const map = `# Repo Map
 
@@ -64,7 +96,7 @@ Use git churn, grep hits, and metadata. Add only files that earned inspection.
 Paste only compact facts here. Do not paste raw source.
 
 \`\`\`
-${scan.slice(0, 12000)}
+${scanNotes.slice(0, 12000)}
 \`\`\`
 `;
 

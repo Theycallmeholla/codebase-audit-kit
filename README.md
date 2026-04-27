@@ -28,6 +28,7 @@ Inside the repo you want to audit:
 
 ```bash
 audit-kit init
+audit-kit doctor
 audit-kit scan
 audit-kit map
 audit-kit surface auth
@@ -64,11 +65,26 @@ Collects cheap signals:
 
 It does **not** summarize the whole codebase.
 
+Use `audit-kit scan --json` to also write `.audit-kit/latest-scan.json` for downstream tooling.
+
 ### `audit-kit map`
 
 Creates `.audit-kit/repo-map.md`.
 
-The map is a compact working artifact. Fill in missing parts manually or with Claude after reading the scan.
+Use `audit-kit map --from-json` to prefer `.audit-kit/latest-scan.json` when it exists. The map is a compact working artifact. Fill in missing parts manually or with Claude after reading the scan.
+
+### `audit-kit doctor`
+
+Checks local dependencies before an audit run.
+
+- required: `git`, `rg`
+- optional: `tree`, `cloc`
+
+Missing optional tools print install hints. Missing required tools exit nonzero.
+
+### `audit-kit surface:list`
+
+Prints supported surfaces and a one-line description for each.
 
 ### `audit-kit surface <surface>`
 

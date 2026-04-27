@@ -65,7 +65,17 @@ export type ScanResult = {
   outputPath: string;
 };
 
-export async function scanProject(root: string, maxFiles: number): Promise<ScanResult> {
+export type ScanJson = {
+  files: string[];
+  metadataHits: string[];
+  tree: string;
+  cloc: string;
+  hotFiles: string;
+  grepSignals: Array<{ name: string; pattern: string; output: string }>;
+  generatedAt: string;
+};
+
+export async function scanProject(root: string, maxFiles: number, options?: { json?: boolean }): Promise<ScanResult> {
   await ensureDir(auditDir(root));
 
   const files = await fg(["**/*"], {
@@ -103,6 +113,7 @@ export async function scanProject(root: string, maxFiles: number): Promise<ScanR
     root
   );
 
+  const grepSignals: Array<{ name: string; pattern: string; output: string }> = [];
   const grepSections: string[] = [];
 
   for (const item of rgPatterns) {
@@ -111,12 +122,14 @@ export async function scanProject(root: string, maxFiles: number): Promise<ScanR
       ["-c", `rg -n --hidden --glob '!node_modules' --glob '!dist' --glob '!build' --glob '!.git' --glob '!coverage' --glob '!.next' --glob '!vendor' --glob '!target' --glob '!.audit-kit' ${JSON.stringify(item.pattern)} . | head -80`],
       root
     );
+    grepSignals.push({ name: item.name, pattern: item.pattern, output: out });
     grepSections.push(`## ${item.name}\n\n\`\`\`\n${out}\n\`\`\``);
   }
 
+  const generatedAt = new Date().toISOString();
   const summary = `# Audit Kit Scan
 
-Generated: ${new Date().toISOString()}
+Generated: ${generatedAt}
 
 ## File Count
 
@@ -158,6 +171,18 @@ ${grepSections.join("\n\n")}
   const outputPath = path.join(auditDir(root), "scans", `scan-${Date.now()}.md`);
   await writeText(outputPath, summary);
   await writeText(path.join(auditDir(root), "latest-scan.md"), summary);
+  if (options?.json) {
+    const payload: ScanJson = {
+      files: selectedFiles,
+      metadataHits,
+      tree,
+      cloc,
+      hotFiles,
+      grepSignals,
+      generatedAt
+    };
+    await writeText(path.join(auditDir(root), "latest-scan.json"), JSON.stringify(payload, null, 2));
+  }
 
   return { summary, outputPath };
 }

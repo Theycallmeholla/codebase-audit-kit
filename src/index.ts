@@ -2,10 +2,11 @@
 
 import { Command } from "commander";
 import pc from "picocolors";
+import { runDoctor } from "./lib/doctor.js";
 import { initProject } from "./lib/init.js";
 import { scanProject } from "./lib/scan.js";
 import { createMap } from "./lib/map.js";
-import { createSurfacePrompt } from "./lib/surface.js";
+import { createSurfacePrompt, listSurfaces } from "./lib/surface.js";
 import { addFinding, listFindings } from "./lib/ledger.js";
 import { createClaudePrompt } from "./lib/prompt.js";
 
@@ -26,12 +27,25 @@ program
   });
 
 program
+  .command("doctor")
+  .description("Check required and optional local audit tools")
+  .option("-p, --path <path>", "target repo path", process.cwd())
+  .action(async (opts) => {
+    const result = await runDoctor(opts.path);
+    console.log(result.output);
+    if (!result.ok) {
+      process.exitCode = 1;
+    }
+  });
+
+program
   .command("scan")
   .description("Collect cheap repo signals without reading full source files")
   .option("-p, --path <path>", "target repo path", process.cwd())
   .option("--max-files <n>", "max file paths to include", "250")
+  .option("--json", "also write .audit-kit/latest-scan.json")
   .action(async (opts) => {
-    const result = await scanProject(opts.path, Number(opts.maxFiles));
+    const result = await scanProject(opts.path, Number(opts.maxFiles), { json: Boolean(opts.json) });
     console.log(result.summary);
   });
 
@@ -39,9 +53,17 @@ program
   .command("map")
   .description("Build a compact repo map from scan output")
   .option("-p, --path <path>", "target repo path", process.cwd())
+  .option("--from-json", "prefer .audit-kit/latest-scan.json when available")
   .action(async (opts) => {
-    const out = await createMap(opts.path);
+    const out = await createMap(opts.path, { fromJson: Boolean(opts.fromJson) });
     console.log(pc.green(`Wrote ${out}`));
+  });
+
+program
+  .command("surface:list")
+  .description("List supported audit surfaces")
+  .action(() => {
+    console.log(listSurfaces());
   });
 
 program
