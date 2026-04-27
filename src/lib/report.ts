@@ -1,13 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { auditDir, exists, readText, writeText } from "./fs.js";
-import { compactLedger, getSeverityBreakdown, readLedger, sortFindings, type Confidence, type Finding } from "./ledger.js";
-
-const confidenceOrder: Record<Confidence, number> = {
-  high: 0,
-  medium: 1,
-  low: 2
-};
+import { compactLedger, getSeverityBreakdown, readLedger, sortFindings, type Finding } from "./ledger.js";
 
 function ledgerFiles(findings: Finding[]): string[] {
   return findings.flatMap((finding) => finding.filesInspected ?? []).filter(Boolean);
@@ -77,21 +71,6 @@ function trimRepoMapScope(repoMap: string): string {
   return [title, "", ...sections.map((section) => section.trim())].join("\n\n").trim();
 }
 
-function recommendedFixOrder(findings: Finding[]): Finding[] {
-  return [...sortFindings(findings)].sort((a, b) => {
-    if (a.severity !== b.severity) {
-      return a.severity.localeCompare(b.severity);
-    }
-
-    const confidenceDiff = confidenceOrder[a.confidence] - confidenceOrder[b.confidence];
-    if (confidenceDiff !== 0) {
-      return confidenceDiff;
-    }
-
-    return a.id.localeCompare(b.id);
-  });
-}
-
 function renderFindings(findings: Finding[]): string {
   if (findings.length === 0) {
     return "No confirmed findings yet.";
@@ -123,7 +102,7 @@ export async function createReport(root: string): Promise<string> {
   const scope = repoMapRaw ? trimRepoMapScope(repoMapRaw) : "Repo map not available.";
   const findings = sortFindings(ledger.findings);
   const severityBreakdown = getSeverityBreakdown(findings);
-  const fixOrder = recommendedFixOrder(findings);
+  const fixOrder = sortFindings(findings);
   const openQuestions = findings.map((finding) => finding.openQuestion).filter((value): value is string => Boolean(value));
   const filesInspected = await uniqueFilesInspected(root, findings);
 

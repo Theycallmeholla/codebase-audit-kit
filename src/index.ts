@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import pc from "picocolors";
 import { cleanAuditArtifacts } from "./lib/clean.js";
@@ -14,9 +17,11 @@ import { addFinding, exportLedger, listFindings } from "./lib/ledger.js";
 import { createClaudePrompt } from "./lib/prompt.js";
 import { createReport } from "./lib/report.js";
 
+const pkgPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../package.json");
+const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as { name: string; version: string };
 const program = new Command();
-const packageName = "codebase-audit-kit";
-const packageVersion = "0.1.0";
+const packageName = pkg.name;
+const packageVersion = pkg.version;
 
 program
   .name("audit-kit")

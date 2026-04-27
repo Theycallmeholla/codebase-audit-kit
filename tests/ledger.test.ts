@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { initProject } from "../src/lib/init.js";
@@ -93,6 +93,55 @@ describe("ledger", () => {
     ).rejects.toThrow(/surface/);
 
     expect(await readFile(ledgerPath, "utf8")).toBe(before);
+  });
+
+  it("assigns next ID per surface from max existing, not array length", async () => {
+    const root = await makeTempDir("audit-kit-ledger-");
+    await initProject(root);
+
+    for (const title of ["one", "two", "three"]) {
+      await addFinding(root, {
+        surface: "auth",
+        severity: "P2",
+        title,
+        evidence: "e",
+        fix: "f"
+      });
+    }
+
+    const ledgerPath = path.join(root, ".audit-kit", "ledger.json");
+    const before = JSON.parse(await readFile(ledgerPath, "utf8")) as { findings: Array<{ id: string }> };
+    expect(before.findings.map((f) => f.id)).toEqual(["AUTH-001", "AUTH-002", "AUTH-003"]);
+
+    const trimmed = { findings: before.findings.filter((f) => f.id !== "AUTH-002") };
+    await writeFile(ledgerPath, JSON.stringify(trimmed, null, 2), "utf8");
+
+    await addFinding(root, {
+      surface: "auth",
+      severity: "P2",
+      title: "after delete",
+      evidence: "e",
+      fix: "f"
+    });
+
+    const after = await readLedger(root);
+    const ids = after.findings.map((f) => f.id);
+    expect(ids).toContain("AUTH-004");
+    expect(ids).not.toContain("AUTH-002");
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("numbers findings independently per surface", async () => {
+    const root = await makeTempDir("audit-kit-ledger-");
+    await initProject(root);
+
+    await addFinding(root, { surface: "auth", severity: "P1", title: "a", evidence: "e", fix: "f" });
+    await addFinding(root, { surface: "payments", severity: "P1", title: "p", evidence: "e", fix: "f" });
+    await addFinding(root, { surface: "auth", severity: "P1", title: "a2", evidence: "e", fix: "f" });
+
+    const ledger = await readLedger(root);
+    const ids = ledger.findings.map((f) => f.id);
+    expect(ids).toEqual(["AUTH-001", "PAYMENTS-001", "AUTH-002"]);
   });
 
   it("accepts a valid finding with optional fields omitted", async () => {

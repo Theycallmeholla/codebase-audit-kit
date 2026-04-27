@@ -157,8 +157,13 @@ export async function addFinding(root: string, input: AddFindingInput): Promise<
 
   const validated = parsed.data;
   const ledger = await readLedger(root);
-  const count = ledger.findings.length + 1;
-  const id = `${validated.surface.toUpperCase()}-${String(count).padStart(3, "0")}`;
+  const surfacePrefix = `${validated.surface.toUpperCase()}-`;
+  const existingNumbers = ledger.findings
+    .filter((finding) => finding.id.startsWith(surfacePrefix))
+    .map((finding) => Number(finding.id.slice(surfacePrefix.length)))
+    .filter((value) => Number.isFinite(value));
+  const next = existingNumbers.length === 0 ? 1 : Math.max(...existingNumbers) + 1;
+  const id = `${surfacePrefix}${String(next).padStart(3, "0")}`;
 
   ledger.findings.push(
     normalizeFinding({

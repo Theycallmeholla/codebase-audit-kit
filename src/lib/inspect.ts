@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { StringDecoder } from "node:string_decoder";
 import { auditDir, ensureDir, isIgnoredRelativePath, isWithinRoot, rel, resolveRepoPath } from "./fs.js";
 
 type InspectSpec = {
@@ -31,10 +32,9 @@ function truncateUtf8(content: string, maxBytes: number): { body: string; trunca
     return { body: content, truncated: false };
   }
 
-  return {
-    body: buffer.subarray(0, maxBytes).toString("utf8"),
-    truncated: true
-  };
+  const decoder = new StringDecoder("utf8");
+  const body = decoder.write(buffer.subarray(0, maxBytes));
+  return { body, truncated: true };
 }
 
 function sliceLines(content: string, start: number, end: number): string {
