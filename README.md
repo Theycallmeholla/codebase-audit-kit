@@ -29,9 +29,11 @@ Inside the repo you want to audit:
 ```bash
 audit-kit init
 audit-kit doctor
-audit-kit scan
-audit-kit map
-audit-kit surface auth
+audit-kit scan --json
+audit-kit map --from-json
+audit-kit surface:list
+audit-kit next auth
+audit-kit inspect <earned-files>
 audit-kit prompt auth
 ```
 
@@ -86,6 +88,15 @@ Missing optional tools print install hints. Missing required tools exit nonzero.
 
 Prints supported surfaces and a one-line description for each.
 
+### `audit-kit next <surface>`
+
+Writes a next-step prompt with:
+
+- top grep commands to run
+- top 5 candidate files from latest scan signals
+- reasons each file earned inspection
+- a Claude-ready mini prompt
+
 ### `audit-kit surface <surface>`
 
 Supported surfaces:
@@ -105,6 +116,15 @@ ux
 ```
 
 Creates a focused prompt for that risk surface.
+
+### `audit-kit inspect <file...>`
+
+Reads one or more earned files under the repo root with guardrails:
+
+- rejects paths outside the repo
+- rejects ignored directories like `node_modules`, `dist`, and `.audit-kit`
+- truncates each file to 12000 bytes by default
+- writes `.audit-kit/inspections/inspection-<timestamp>.md`
 
 ### `audit-kit prompt <surface>`
 

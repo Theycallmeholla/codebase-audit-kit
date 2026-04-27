@@ -1,20 +1,10 @@
 import path from "node:path";
 import fg from "fast-glob";
 import { auditDir, ensureDir, writeText } from "./fs.js";
+import { ignoredGlobs, lockfileNames } from "./policy.js";
 import { optional } from "./shell.js";
 
-const ignore = [
-  "**/node_modules/**",
-  "**/.git/**",
-  "**/dist/**",
-  "**/build/**",
-  "**/.next/**",
-  "**/coverage/**",
-  "**/vendor/**",
-  "**/target/**",
-  "**/.turbo/**",
-  "**/.audit-kit/**"
-];
+const ignore = [...ignoredGlobs];
 
 const metadataFiles = [
   "package.json",
@@ -59,6 +49,14 @@ const rgPatterns = [
   { name: "uploads", pattern: "upload|multipart|formData|blob|file" },
   { name: "cache", pattern: "cache|revalidate|stale|redis|ttl" }
 ];
+
+const rgExcludePatterns = [
+  ...ignoredGlobs,
+  ...lockfileNames,
+  ...lockfileNames.map((name) => `**/${name}`)
+];
+
+const rgExcludeGlobs = rgExcludePatterns.map((pattern) => `--glob '!${pattern}'`).join(" ");
 
 export type ScanResult = {
   summary: string;
@@ -119,7 +117,7 @@ export async function scanProject(root: string, maxFiles: number, options?: { js
   for (const item of rgPatterns) {
     const out = await optional(
       "sh",
-      ["-c", `rg -n --hidden --glob '!node_modules' --glob '!dist' --glob '!build' --glob '!.git' --glob '!coverage' --glob '!.next' --glob '!vendor' --glob '!target' --glob '!.audit-kit' ${JSON.stringify(item.pattern)} . | head -80`],
+      ["-c", `rg -n --hidden ${rgExcludeGlobs} ${JSON.stringify(item.pattern)} . | head -80`],
       root
     );
     grepSignals.push({ name: item.name, pattern: item.pattern, output: out });

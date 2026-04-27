@@ -1,5 +1,6 @@
 import path from "node:path";
 import { auditDir, ensureDir, exists, writeText } from "./fs.js";
+import { ignoredDirNames } from "./policy.js";
 
 export async function initProject(root: string): Promise<void> {
   const dir = auditDir(root);
@@ -7,6 +8,7 @@ export async function initProject(root: string): Promise<void> {
   await ensureDir(path.join(dir, "scans"));
   await ensureDir(path.join(dir, "prompts"));
   await ensureDir(path.join(dir, "surfaces"));
+  await ensureDir(path.join(dir, "inspections"));
 
   const configPath = path.join(dir, "config.json");
   if (!(await exists(configPath))) {
@@ -16,17 +18,7 @@ export async function initProject(root: string): Promise<void> {
         {
           version: 1,
           defaultSeverityFilter: ["P0", "P1", "P2", "P3"],
-          ignoredDirs: [
-            "node_modules",
-            ".git",
-            "dist",
-            "build",
-            ".next",
-            "coverage",
-            "vendor",
-            "target",
-            ".turbo"
-          ],
+          ignoredDirs: [...ignoredDirNames],
           auditOrder: [
             "auth",
             "payments",

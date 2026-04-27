@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { ignoredDirNames } from "./policy.js";
 
 export async function ensureDir(dir: string): Promise<void> {
   await fs.mkdir(dir, { recursive: true });
@@ -29,4 +30,29 @@ export function auditDir(root: string): string {
 
 export function rel(root: string, filePath: string): string {
   return path.relative(root, filePath).replaceAll("\\", "/");
+}
+
+export function isWithinRoot(root: string, filePath: string): boolean {
+  const relative = rel(root, filePath);
+  return relative !== "" && !relative.startsWith("../") && relative !== "..";
+}
+
+export function isIgnoredRelativePath(relativePath: string): boolean {
+  const parts = relativePath.split("/").filter(Boolean);
+  return parts.some((part) => ignoredDirNames.includes(part as (typeof ignoredDirNames)[number]));
+}
+
+export function resolveRepoPath(root: string, inputPath: string): { absolutePath: string; relativePath: string } {
+  const absolutePath = path.resolve(root, inputPath);
+  const relativePath = rel(root, absolutePath);
+
+  if (!isWithinRoot(root, absolutePath)) {
+    throw new Error(`Path is outside repo root: ${inputPath}`);
+  }
+
+  if (isIgnoredRelativePath(relativePath)) {
+    throw new Error(`Path is in an ignored directory: ${inputPath}`);
+  }
+
+  return { absolutePath, relativePath };
 }

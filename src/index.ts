@@ -4,8 +4,10 @@ import { Command } from "commander";
 import pc from "picocolors";
 import { runDoctor } from "./lib/doctor.js";
 import { initProject } from "./lib/init.js";
+import { inspectFiles } from "./lib/inspect.js";
 import { scanProject } from "./lib/scan.js";
 import { createMap } from "./lib/map.js";
+import { createNextPrompt } from "./lib/next.js";
 import { createSurfacePrompt, listSurfaces } from "./lib/surface.js";
 import { addFinding, listFindings } from "./lib/ledger.js";
 import { createClaudePrompt } from "./lib/prompt.js";
@@ -67,6 +69,16 @@ program
   });
 
 program
+  .command("next")
+  .description("Recommend the next cheap commands and earned files for a surface")
+  .argument("<surface>", "surface name")
+  .option("-p, --path <path>", "target repo path", process.cwd())
+  .action(async (surface, opts) => {
+    const out = await createNextPrompt(opts.path, surface);
+    console.log(pc.green(`Wrote ${out}`));
+  });
+
+program
   .command("surface")
   .description("Create a focused attack-surface audit prompt")
   .argument("<surface>", "auth | payments | db | external | uploads | admin | jobs | cache | errors | tests | ux")
@@ -74,6 +86,17 @@ program
   .action(async (surface, opts) => {
     const out = await createSurfacePrompt(opts.path, surface);
     console.log(pc.green(`Wrote ${out}`));
+  });
+
+program
+  .command("inspect")
+  .description("Read earned source files under repo and ignore boundaries")
+  .argument("<file...>", "one or more repo-relative file paths")
+  .option("-p, --path <path>", "target repo path", process.cwd())
+  .option("--max-bytes <n>", "max bytes per file", "12000")
+  .action(async (files, opts) => {
+    const output = await inspectFiles(opts.path, files, Number(opts.maxBytes));
+    console.log(output);
   });
 
 program

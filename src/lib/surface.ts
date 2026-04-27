@@ -8,7 +8,7 @@ type SurfaceDefinition = {
   grep: string[];
 };
 
-const surfaceConfig: Record<string, SurfaceDefinition> = {
+export const surfaceConfig: Record<string, SurfaceDefinition> = {
   auth: {
     title: "Auth / Permissions",
     description: "Session trust, authorization, and privilege boundaries.",
@@ -84,11 +84,16 @@ export function listSurfaces(): string {
   ].join("\n");
 }
 
-export async function createSurfacePrompt(root: string, surface: string): Promise<string> {
+export function getSurfaceDefinition(surface: string): SurfaceDefinition {
   const cfg = surfaceConfig[surface];
   if (!cfg) {
     throw new Error(`Unknown surface: ${surface}`);
   }
+  return cfg;
+}
+
+export async function createSurfacePrompt(root: string, surface: string): Promise<string> {
+  const cfg = getSurfaceDefinition(surface);
 
   const mapPath = path.join(auditDir(root), "repo-map.md");
   const map = (await exists(mapPath)) ? await readText(mapPath) : "[repo map missing -- run audit-kit map first]";

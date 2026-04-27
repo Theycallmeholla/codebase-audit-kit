@@ -1,24 +1,12 @@
-import { mkdtemp, rm, readFile } from "node:fs/promises";
-import os from "node:os";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { initProject } from "../src/lib/init.js";
-
-const tempDirs: string[] = [];
-
-async function makeTempDir(): Promise<string> {
-  const dir = await mkdtemp(path.join(os.tmpdir(), "audit-kit-init-"));
-  tempDirs.push(dir);
-  return dir;
-}
-
-afterEach(async () => {
-  await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
-});
+import { makeTempDir } from "./helpers.js";
 
 describe("initProject", () => {
   it("creates the audit-kit scaffold and defaults", async () => {
-    const root = await makeTempDir();
+    const root = await makeTempDir("audit-kit-init-");
 
     await initProject(root);
 
