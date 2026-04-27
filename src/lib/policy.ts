@@ -19,3 +19,14 @@ export const lockfileNames = [
   "yarn.lock",
   "bun.lockb"
 ] as const;
+
+export const secretFileGlobs = [
+  ".env",
+  ".env.*",
+  ".envrc",
+  "secrets/**",
+  "*.pem",
+  "*.key",
+  "*.cert",
+  "*.crt"
+] as const;
