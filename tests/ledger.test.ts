@@ -37,6 +37,84 @@ describe("ledger", () => {
     expect(ledger.findings[0]?.filesInspected).toEqual(["src/api/stripe/webhook.ts", "src/jobs/reconcile-payments.ts"]);
   });
 
+  it("rejects an invalid severity and leaves the ledger unchanged", async () => {
+    const root = await makeTempDir("audit-kit-ledger-");
+    await initProject(root);
+    const ledgerPath = path.join(root, ".audit-kit", "ledger.json");
+    const before = await readFile(ledgerPath, "utf8");
+
+    await expect(
+      addFinding(root, {
+        surface: "auth",
+        severity: "NOTAVALIDSEV" as never,
+        title: "x",
+        evidence: "x",
+        fix: "x"
+      })
+    ).rejects.toThrow(/severity/);
+
+    expect(await readFile(ledgerPath, "utf8")).toBe(before);
+  });
+
+  it("rejects an invalid confidence and leaves the ledger unchanged", async () => {
+    const root = await makeTempDir("audit-kit-ledger-");
+    await initProject(root);
+    const ledgerPath = path.join(root, ".audit-kit", "ledger.json");
+    const before = await readFile(ledgerPath, "utf8");
+
+    await expect(
+      addFinding(root, {
+        surface: "auth",
+        severity: "P1",
+        title: "x",
+        evidence: "x",
+        fix: "x",
+        confidence: "wishful" as never
+      })
+    ).rejects.toThrow(/confidence/);
+
+    expect(await readFile(ledgerPath, "utf8")).toBe(before);
+  });
+
+  it("rejects an unknown surface and leaves the ledger unchanged", async () => {
+    const root = await makeTempDir("audit-kit-ledger-");
+    await initProject(root);
+    const ledgerPath = path.join(root, ".audit-kit", "ledger.json");
+    const before = await readFile(ledgerPath, "utf8");
+
+    await expect(
+      addFinding(root, {
+        surface: "made-up-surface",
+        severity: "P1",
+        title: "x",
+        evidence: "x",
+        fix: "x"
+      })
+    ).rejects.toThrow(/surface/);
+
+    expect(await readFile(ledgerPath, "utf8")).toBe(before);
+  });
+
+  it("accepts a valid finding with optional fields omitted", async () => {
+    const root = await makeTempDir("audit-kit-ledger-");
+    await initProject(root);
+
+    await addFinding(root, {
+      surface: "auth",
+      severity: "P2",
+      title: "Optional fields omitted",
+      evidence: "evidence",
+      fix: "fix"
+    });
+
+    const ledger = await readLedger(root);
+    expect(ledger.findings).toHaveLength(1);
+    expect(ledger.findings[0]?.severity).toBe("P2");
+    expect(ledger.findings[0]?.confidence).toBe("medium");
+    expect(ledger.findings[0]?.file).toBe("");
+    expect(ledger.findings[0]?.filesInspected).toEqual([]);
+  });
+
   it("exports ledger as JSON and markdown without mutating the ledger", async () => {
     const root = await makeTempDir("audit-kit-ledger-");
     await initProject(root);

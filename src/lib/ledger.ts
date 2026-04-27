@@ -1,5 +1,7 @@
 import path from "node:path";
+import { z } from "zod";
 import { auditDir, exists, readText, writeText } from "./fs.js";
+import { surfaceConfig } from "./surface.js";
 
 export type Severity = "P0" | "P1" | "P2" | "P3";
 export type Confidence = "high" | "medium" | "low";
@@ -39,6 +41,28 @@ type AddFindingInput = {
   openQuestion?: string;
   filesInspected?: string[];
 };
+
+const severitySchema = z.enum(["P0", "P1", "P2", "P3"]);
+const confidenceSchema = z.enum(["high", "medium", "low"]);
+const surfaceSchema = z
+  .string()
+  .refine((value) => Object.prototype.hasOwnProperty.call(surfaceConfig, value), {
+    message: `Unknown surface. Supported: ${Object.keys(surfaceConfig).join(", ")}`
+  });
+
+const addFindingSchema = z.object({
+  surface: surfaceSchema,
+  severity: severitySchema,
+  title: z.string().min(1, "title is required"),
+  file: z.string().optional(),
+  evidence: z.string().min(1, "evidence is required"),
+  fix: z.string().min(1, "fix is required"),
+  confidence: confidenceSchema.optional(),
+  impact: z.string().optional(),
+  nextFile: z.string().optional(),
+  openQuestion: z.string().optional(),
+  filesInspected: z.array(z.string()).optional()
+});
 
 const severityOrder: Record<Severity, number> = {
   P0: 0,
@@ -123,26 +147,35 @@ function renderFindingDetails(f: Finding): string {
 }
 
 export async function addFinding(root: string, input: AddFindingInput): Promise<void> {
+  const parsed = addFindingSchema.safeParse(input);
+  if (!parsed.success) {
+    const issues = parsed.error.issues
+      .map((issue) => `${issue.path.join(".") || "input"}: ${issue.message}`)
+      .join("; ");
+    throw new Error(`Invalid finding: ${issues}`);
+  }
+
+  const validated = parsed.data;
   const ledger = await readLedger(root);
   const count = ledger.findings.length + 1;
-  const id = `${input.surface.toUpperCase()}-${String(count).padStart(3, "0")}`;
+  const id = `${validated.surface.toUpperCase()}-${String(count).padStart(3, "0")}`;
 
   ledger.findings.push(
     normalizeFinding({
       id,
-      surface: input.surface,
-      severity: input.severity,
-      title: input.title,
-      file: input.file ?? "",
-      evidence: input.evidence,
-      fix: input.fix,
-      confidence: input.confidence ?? "medium",
+      surface: validated.surface,
+      severity: validated.severity,
+      title: validated.title,
+      file: validated.file ?? "",
+      evidence: validated.evidence,
+      fix: validated.fix,
+      confidence: validated.confidence ?? "medium",
       status: "open",
       createdAt: new Date().toISOString(),
-      impact: input.impact,
-      nextFile: input.nextFile,
-      openQuestion: input.openQuestion,
-      filesInspected: input.filesInspected ?? []
+      impact: validated.impact,
+      nextFile: validated.nextFile,
+      openQuestion: validated.openQuestion,
+      filesInspected: validated.filesInspected ?? []
     })
   );
 

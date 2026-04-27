@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { auditDir, ensureDir, resolveRepoPath } from "./fs.js";
+import { auditDir, ensureDir, isIgnoredRelativePath, isWithinRoot, rel, resolveRepoPath } from "./fs.js";
 
 type InspectSpec = {
   inputPath: string;
@@ -47,6 +47,8 @@ export async function inspectFiles(root: string, filePaths: string[], maxBytes =
     throw new Error("Provide at least one file to inspect.");
   }
 
+  const realRoot = await fs.realpath(root);
+
   const sections = await Promise.all(
     filePaths.map(async (input) => {
       const spec = parseSpec(input);
@@ -54,6 +56,14 @@ export async function inspectFiles(root: string, filePaths: string[], maxBytes =
       const stat = await fs.stat(absolutePath);
       if (!stat.isFile()) {
         throw new Error(`Not a file: ${spec.inputPath}`);
+      }
+
+      const realPath = await fs.realpath(absolutePath);
+      if (!isWithinRoot(realRoot, realPath)) {
+        throw new Error(`Symlink escapes repo root: ${spec.inputPath}`);
+      }
+      if (isIgnoredRelativePath(rel(realRoot, realPath))) {
+        throw new Error(`Symlink resolves into ignored directory: ${spec.inputPath}`);
       }
 
       const content = await fs.readFile(absolutePath, "utf8");

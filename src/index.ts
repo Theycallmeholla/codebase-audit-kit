@@ -203,4 +203,8 @@ program
     console.log(pc.green("Finding added."));
   });
 
-program.parseAsync();
+program.parseAsync().catch((error) => {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(pc.red(message));
+  process.exit(1);
+});
