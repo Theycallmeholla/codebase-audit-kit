@@ -1,0 +1,5 @@
+node_modules/
+dist/
+.audit-kit/
+.DS_Store
+.env
