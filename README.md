@@ -134,6 +134,34 @@ Creates a Claude-ready prompt using:
 - selected surface
 - current audit ledger
 
+## Smoke Test Another Repo
+
+```bash
+mkdir -p /tmp/audit-kit-smoke-target/src
+
+cat > /tmp/audit-kit-smoke-target/package.json <<'EOF'
+{
+  "name": "audit-kit-smoke-target",
+  "version": "0.0.1",
+  "type": "module"
+}
+EOF
+
+cat > /tmp/audit-kit-smoke-target/src/index.ts <<'EOF'
+export function authHandler() {
+  const token = process.env.AUTH_TOKEN;
+  console.log(token);
+  return "auth";
+}
+EOF
+
+node dist/index.js init -p /tmp/audit-kit-smoke-target
+node dist/index.js scan -p /tmp/audit-kit-smoke-target --json
+node dist/index.js map -p /tmp/audit-kit-smoke-target --from-json
+node dist/index.js next -p /tmp/audit-kit-smoke-target auth
+node dist/index.js inspect -p /tmp/audit-kit-smoke-target src/index.ts
+```
+
 ### `audit-kit ledger:add`
 
 Example:

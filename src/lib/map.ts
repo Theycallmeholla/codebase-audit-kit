@@ -2,6 +2,10 @@ import path from "node:path";
 import { auditDir, exists, readText, writeText } from "./fs.js";
 import type { ScanJson } from "./scan.js";
 
+function cleanScanField(value: string): string {
+  return value === "[no output]" ? "none" : value;
+}
+
 function renderScanNotes(scan: ScanJson): string {
   return [
     `Generated: ${scan.generatedAt}`,
@@ -12,16 +16,16 @@ function renderScanNotes(scan: ScanJson): string {
     ...scan.files.slice(0, 40).map((file) => `- ${file}`),
     "",
     "Structure:",
-    scan.tree,
+    cleanScanField(scan.tree),
     "",
     "Size profile:",
-    scan.cloc,
+    cleanScanField(scan.cloc),
     "",
     "Hot files:",
-    scan.hotFiles,
+    cleanScanField(scan.hotFiles),
     "",
     "Grep signals:",
-    ...scan.grepSignals.map((signal) => `- ${signal.name}: ${signal.output.slice(0, 400)}`)
+    ...scan.grepSignals.map((signal) => `- ${signal.name}: ${cleanScanField(signal.output).slice(0, 400)}`)
   ].join("\n");
 }
 
