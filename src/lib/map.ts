@@ -1,6 +1,6 @@
 import path from "node:path";
-import { auditDir, exists, readText, writeText } from "./fs.js";
-import type { ScanJson } from "./scan.js";
+import { auditDir, exists, parseJson, readText, writeText } from "./fs.js";
+import { scanJsonErrorMessage, scanJsonSchema, type ScanJson } from "./scan.js";
 
 function cleanScanField(value: string): string {
   return value === "[no output]" ? "none" : value;
@@ -35,7 +35,7 @@ export async function createMap(root: string, options?: { fromJson?: boolean }):
 
   let scanNotes = "";
   if (options?.fromJson && (await exists(jsonPath))) {
-    const scan = JSON.parse(await readText(jsonPath)) as ScanJson;
+    const scan: ScanJson = parseJson(await readText(jsonPath), scanJsonSchema, scanJsonErrorMessage);
     scanNotes = renderScanNotes(scan);
   } else {
     scanNotes = (await exists(scanPath)) ? await readText(scanPath) : "";

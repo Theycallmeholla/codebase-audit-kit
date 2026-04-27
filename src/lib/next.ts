@@ -1,8 +1,8 @@
 import path from "node:path";
-import { auditDir, exists, readText, writeText } from "./fs.js";
+import { auditDir, exists, parseJson, readText, writeText } from "./fs.js";
 import { compactLedger } from "./ledger.js";
 import { ignoredGlobs, lockfileNames, secretFileGlobs } from "./policy.js";
-import type { ScanJson } from "./scan.js";
+import { scanJsonErrorMessage, scanJsonSchema, type ScanJson } from "./scan.js";
 import { optional } from "./shell.js";
 import { getSurfaceDefinition } from "./surface.js";
 
@@ -276,7 +276,7 @@ export async function createNextPrompt(root: string, surface: string): Promise<s
     throw new Error("Missing latest scan JSON. Run audit-kit scan --json first.");
   }
 
-  const scan = JSON.parse(await readText(scanJsonPath)) as ScanJson;
+  const scan: ScanJson = parseJson(await readText(scanJsonPath), scanJsonSchema, scanJsonErrorMessage);
   const repoMap = (await exists(mapPath)) ? await readText(mapPath) : "[missing repo map]";
   const ledger = await compactLedger(root);
   const grepCommands = cfg.grep.map((term) => `rg -n ${JSON.stringify(term)} .`);

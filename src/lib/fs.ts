@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import type { z } from "zod";
 import { ignoredDirNames } from "./policy.js";
 
 export async function ensureDir(dir: string): Promise<void> {
@@ -40,6 +41,25 @@ export function isWithinRoot(root: string, filePath: string): boolean {
 export function isIgnoredRelativePath(relativePath: string): boolean {
   const parts = relativePath.split("/").filter(Boolean);
   return parts.some((part) => ignoredDirNames.includes(part as (typeof ignoredDirNames)[number]));
+}
+
+export function parseJson<S extends z.ZodTypeAny>(content: string, schema: S, friendly: string): z.output<S> {
+  let value: unknown;
+  try {
+    value = JSON.parse(content);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`${friendly} (JSON parse error: ${message})`);
+  }
+
+  const result = schema.safeParse(value);
+  if (!result.success) {
+    const issues = result.error.issues
+      .map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`)
+      .join("; ");
+    throw new Error(`${friendly} (${issues})`);
+  }
+  return result.data;
 }
 
 export function resolveRepoPath(root: string, inputPath: string): { absolutePath: string; relativePath: string } {

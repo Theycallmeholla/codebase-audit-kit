@@ -1,5 +1,6 @@
 import path from "node:path";
 import fg from "fast-glob";
+import { z } from "zod";
 import { auditDir, ensureDir, writeText } from "./fs.js";
 import { ignoredGlobs, lockfileNames } from "./policy.js";
 import { optional } from "./shell.js";
@@ -63,15 +64,25 @@ export type ScanResult = {
   outputPath: string;
 };
 
-export type ScanJson = {
-  files: string[];
-  metadataHits: string[];
-  tree: string;
-  cloc: string;
-  hotFiles: string;
-  grepSignals: Array<{ name: string; pattern: string; output: string }>;
-  generatedAt: string;
-};
+export const scanJsonSchema = z.object({
+  files: z.array(z.string()),
+  metadataHits: z.array(z.string()),
+  tree: z.string(),
+  cloc: z.string(),
+  hotFiles: z.string(),
+  grepSignals: z.array(
+    z.object({
+      name: z.string(),
+      pattern: z.string(),
+      output: z.string()
+    })
+  ),
+  generatedAt: z.string()
+});
+
+export type ScanJson = z.infer<typeof scanJsonSchema>;
+
+export const scanJsonErrorMessage = "Invalid latest-scan.json. Run audit-kit scan --json again.";
 
 export async function scanProject(root: string, maxFiles: number, options?: { json?: boolean }): Promise<ScanResult> {
   await ensureDir(auditDir(root));

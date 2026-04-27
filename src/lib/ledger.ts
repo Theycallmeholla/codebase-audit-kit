@@ -1,6 +1,6 @@
 import path from "node:path";
 import { z } from "zod";
-import { auditDir, exists, readText, writeText } from "./fs.js";
+import { auditDir, exists, parseJson, readText, writeText } from "./fs.js";
 import { surfaceConfig } from "./surface.js";
 
 export type Severity = "P0" | "P1" | "P2" | "P3";
@@ -44,11 +44,35 @@ type AddFindingInput = {
 
 const severitySchema = z.enum(["P0", "P1", "P2", "P3"]);
 const confidenceSchema = z.enum(["high", "medium", "low"]);
+const statusSchema = z.enum(["open", "fixed", "wontfix"]);
 const surfaceSchema = z
   .string()
   .refine((value) => Object.prototype.hasOwnProperty.call(surfaceConfig, value), {
     message: `Unknown surface. Supported: ${Object.keys(surfaceConfig).join(", ")}`
   });
+
+const findingReadSchema = z.object({
+  id: z.string().min(1),
+  surface: z.string().min(1),
+  severity: severitySchema,
+  title: z.string().min(1),
+  file: z.string().default(""),
+  evidence: z.string(),
+  fix: z.string(),
+  confidence: confidenceSchema.default("medium"),
+  status: statusSchema.default("open"),
+  createdAt: z.string().default(new Date(0).toISOString()),
+  impact: z.string().optional(),
+  nextFile: z.string().optional(),
+  openQuestion: z.string().optional(),
+  filesInspected: z.array(z.string()).default([])
+});
+
+const ledgerSchema = z.object({
+  findings: z.array(findingReadSchema).default([])
+});
+
+const ledgerErrorMessage = "Invalid ledger.json. Fix or re-run audit-kit init.";
 
 const addFindingSchema = z.object({
   surface: surfaceSchema,
@@ -118,9 +142,9 @@ export async function readLedger(root: string): Promise<Ledger> {
     return { findings: [] };
   }
 
-  const parsed = JSON.parse(await readText(ledgerPath)) as { findings?: Partial<Finding>[] };
+  const parsed = parseJson(await readText(ledgerPath), ledgerSchema, ledgerErrorMessage);
   return {
-    findings: (parsed.findings ?? []).map((finding) => normalizeFinding(finding))
+    findings: parsed.findings.map((finding) => normalizeFinding(finding))
   };
 }
 
