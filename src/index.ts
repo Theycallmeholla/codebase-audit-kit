@@ -64,11 +64,19 @@ program
   .option("-p, --path <path>", "target repo path", process.cwd())
   .option("--all", "remove the entire .audit-kit directory")
   .option("--force", "perform the removal")
+  .option("--include-ledger", "with --all, allow removing ledger.json even when it has findings")
   .action(async (opts) => {
-    const result = await cleanAuditArtifacts(opts.path, { all: Boolean(opts.all), force: Boolean(opts.force) });
+    const result = await cleanAuditArtifacts(opts.path, {
+      all: Boolean(opts.all),
+      force: Boolean(opts.force),
+      includeLedger: Boolean(opts.includeLedger)
+    });
     if (result.dryRun) {
       console.log("Would remove:");
       console.log(result.removed.join("\n"));
+      if (result.warning) {
+        console.log(pc.yellow(result.warning));
+      }
       return;
     }
 

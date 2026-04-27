@@ -2,10 +2,14 @@ import path from "node:path";
 import fg from "fast-glob";
 import { z } from "zod";
 import { auditDir, ensureDir, writeText } from "./fs.js";
-import { ignoredGlobs, lockfileNames } from "./policy.js";
+import { ignoredDirNames, ignoredGlobs, lockfileNames } from "./policy.js";
 import { optional } from "./shell.js";
 
 const ignore = [...ignoredGlobs];
+const findExcludePredicate = ignoredDirNames
+  .map((dir) => `-name ${JSON.stringify(dir)}`)
+  .join(" -o ");
+const findIgnore = `\\( -type d \\( ${findExcludePredicate} \\) -prune \\) -o`;
 
 const metadataFiles = [
   "package.json",
@@ -106,7 +110,10 @@ export async function scanProject(root: string, maxFiles: number, options?: { js
 
   const tree = await optional(
     "sh",
-    ["-c", "tree -L 3 -I 'node_modules|dist|build|.git|coverage|.next|vendor|target|.audit-kit' 2>/dev/null || find . -maxdepth 3 -type f | sort | head -250"],
+    [
+      "-c",
+      `tree -L 3 -I 'node_modules|dist|build|.git|coverage|.next|vendor|target|.audit-kit' 2>/dev/null || find . -maxdepth 3 ${findIgnore} -type f -print | sort | head -250`
+    ],
     root
   );
 

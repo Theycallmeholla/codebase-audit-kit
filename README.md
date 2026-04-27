@@ -218,7 +218,8 @@ Prints package name, package version, and current Node version.
 Without `--force`, prints what would be removed.
 
 - default: removes generated `scans`, `prompts`, `inspections`, and `reports`
-- `--all --force`: removes the entire `.audit-kit/` directory
+- `--all --force`: removes the entire `.audit-kit/` directory, but refuses if `ledger.json` has findings
+- `--all --force --include-ledger`: also removes `ledger.json` (destroys recorded findings)
 - preserves `config.json`, `ledger.json`, and `repo-map.md` unless `--all` is used
 
 ## Smoke Test Another Repo
