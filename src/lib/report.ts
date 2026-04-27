@@ -1,3 +1,4 @@
+import { promises as fs } from "node:fs";
 import path from "node:path";
 import { auditDir, exists, readText, writeText } from "./fs.js";
 import { compactLedger, getSeverityBreakdown, readLedger, sortFindings, type Confidence, type Finding } from "./ledger.js";
@@ -8,8 +9,33 @@ const confidenceOrder: Record<Confidence, number> = {
   low: 2
 };
 
-function uniqueFilesInspected(findings: Finding[]): string[] {
-  return [...new Set(findings.flatMap((finding) => finding.filesInspected ?? []).filter(Boolean))].sort();
+function ledgerFiles(findings: Finding[]): string[] {
+  return findings.flatMap((finding) => finding.filesInspected ?? []).filter(Boolean);
+}
+
+async function inspectionFiles(root: string): Promise<string[]> {
+  const dir = path.join(auditDir(root), "inspections");
+  if (!(await exists(dir))) return [];
+
+  const files = await fs.readdir(dir);
+  const paths: string[] = [];
+  for (const file of files) {
+    if (!file.endsWith(".md")) continue;
+    const content = await fs.readFile(path.join(dir, file), "utf8");
+    for (const line of content.split("\n")) {
+      const match = line.match(/^##\s+(.+?)\s*$/);
+      if (match) {
+        paths.push(match[1].trim());
+      }
+    }
+  }
+  return paths;
+}
+
+async function uniqueFilesInspected(root: string, findings: Finding[]): Promise<string[]> {
+  const fromLedger = ledgerFiles(findings);
+  const fromInspections = await inspectionFiles(root);
+  return [...new Set([...fromLedger, ...fromInspections])].sort();
 }
 
 function recommendedFixOrder(findings: Finding[]): Finding[] {
@@ -59,7 +85,7 @@ export async function createReport(root: string): Promise<string> {
   const severityBreakdown = getSeverityBreakdown(findings);
   const fixOrder = recommendedFixOrder(findings);
   const openQuestions = findings.map((finding) => finding.openQuestion).filter((value): value is string => Boolean(value));
-  const filesInspected = uniqueFilesInspected(findings);
+  const filesInspected = await uniqueFilesInspected(root, findings);
 
   const report = `# Audit Report
 

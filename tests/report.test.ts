@@ -1,10 +1,11 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { initProject } from "../src/lib/init.js";
 import { addFinding } from "../src/lib/ledger.js";
+import { inspectFiles } from "../src/lib/inspect.js";
 import { createReport } from "../src/lib/report.js";
-import { writeText } from "../src/lib/fs.js";
+import { ensureDir, writeText } from "../src/lib/fs.js";
 import { makeTempDir } from "./helpers.js";
 
 describe("report", () => {
@@ -63,5 +64,34 @@ describe("report", () => {
     expect(second).toBeGreaterThan(first);
     expect(third).toBeGreaterThan(second);
     expect(content).toContain("## Recommended Fix Order");
+  });
+
+  it("appends inspected files from inspections directory and ledger, deduplicated", async () => {
+    const root = await makeTempDir("audit-kit-report-");
+    await initProject(root);
+    await ensureDir(path.join(root, "src"));
+    await writeFile(path.join(root, "src", "alpha.ts"), "export const alpha = 1;\n", "utf8");
+    await writeFile(path.join(root, "src", "beta.ts"), "export const beta = 2;\n", "utf8");
+
+    await inspectFiles(root, ["src/alpha.ts", "src/beta.ts:1-1"]);
+
+    await addFinding(root, {
+      surface: "auth",
+      severity: "P2",
+      title: "Ledger-only inspected file",
+      file: "src/gamma.ts",
+      evidence: "Evidence",
+      fix: "Fix",
+      filesInspected: ["src/alpha.ts", "src/gamma.ts"]
+    });
+
+    const out = await createReport(root);
+    const content = await readFile(out, "utf8");
+    const appendix = content.split("## Appendix: Files Inspected")[1] ?? "";
+
+    expect(appendix).toContain("- src/alpha.ts");
+    expect(appendix).toContain("- src/beta.ts:1-1");
+    expect(appendix).toContain("- src/gamma.ts");
+    expect(appendix.match(/- src\/alpha\.ts/g)?.length ?? 0).toBe(1);
   });
 });

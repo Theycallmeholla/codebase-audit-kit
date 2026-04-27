@@ -1,13 +1,20 @@
 import path from "node:path";
 import { auditDir, exists, readText, writeText } from "./fs.js";
 import { compactLedger } from "./ledger.js";
+import { createSurfacePrompt, getSurfaceDefinition } from "./surface.js";
 
 export async function createClaudePrompt(root: string, surface: string): Promise<string> {
+  getSurfaceDefinition(surface);
+
   const mapPath = path.join(auditDir(root), "repo-map.md");
   const surfacePath = path.join(auditDir(root), "surfaces", `${surface}.md`);
 
+  if (!(await exists(surfacePath))) {
+    await createSurfacePrompt(root, surface);
+  }
+
   const map = (await exists(mapPath)) ? await readText(mapPath) : "[missing repo map]";
-  const surfacePrompt = (await exists(surfacePath)) ? await readText(surfacePath) : `[missing surface prompt for ${surface}]`;
+  const surfacePrompt = await readText(surfacePath);
   const ledger = await compactLedger(root);
 
   const prompt = `You are auditing a codebase with a strict token budget.

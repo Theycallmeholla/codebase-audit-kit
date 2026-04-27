@@ -43,11 +43,13 @@ audit-kit scan --json
 audit-kit map --from-json
 audit-kit surface:list
 audit-kit next auth
-audit-kit inspect <earned-files>
+audit-kit inspect src/file.ts:1-120
 audit-kit prompt auth
 audit-kit ledger:add ...
 audit-kit report
 ```
+
+`prompt <surface>` auto-generates the surface prompt if it does not exist yet, so the explicit `surface <name>` step is no longer required.
 
 Then paste `.audit-kit/prompts/claude-auth-*.md` into Claude Code.
 
@@ -163,13 +165,23 @@ Reads one or more earned files under the repo root with guardrails:
 - truncates each file to 12000 bytes by default
 - writes `.audit-kit/inspections/inspection-<timestamp>.md`
 
+Pass a line range with `path:start-end` to focus on a specific span:
+
+```bash
+audit-kit inspect src/index.ts:1-80 src/lib/scan.ts:120-220
+```
+
+Range headers in the output include the exact span (`## src/index.ts:1-80`) so the report appendix can show what was inspected.
+
 ### `audit-kit prompt <surface>`
 
 Creates a Claude-ready prompt using:
 
 - repo map
-- selected surface
+- selected surface (auto-generated when `.audit-kit/surfaces/<surface>.md` is missing)
 - current audit ledger
+
+Invalid surfaces fail clearly. Run `audit-kit surface:list` to see supported names.
 
 ### `audit-kit ledger:export`
 
@@ -184,6 +196,7 @@ Builds a markdown audit report from:
 
 - `.audit-kit/ledger.json`
 - `.audit-kit/repo-map.md` when present
+- `.audit-kit/inspections/*.md` so the appendix lists every file actually inspected (deduplicated with ledger `filesInspected`)
 
 Writes `.audit-kit/reports/report-<timestamp>.md`.
 

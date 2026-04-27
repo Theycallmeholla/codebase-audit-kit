@@ -2,6 +2,29 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { auditDir, ensureDir, resolveRepoPath } from "./fs.js";
 
+type InspectSpec = {
+  inputPath: string;
+  filePath: string;
+  range?: { start: number; end: number };
+};
+
+function parseSpec(input: string): InspectSpec {
+  const match = input.match(/^(.*):(\d+)-(\d+)$/);
+  if (!match) {
+    return { inputPath: input, filePath: input };
+  }
+
+  const filePath = match[1];
+  const start = Number(match[2]);
+  const end = Number(match[3]);
+
+  if (!filePath || start < 1 || end < 1 || start > end) {
+    throw new Error(`Invalid range in "${input}". Use file.ts:start-end with 1 <= start <= end.`);
+  }
+
+  return { inputPath: input, filePath, range: { start, end } };
+}
+
 function truncateUtf8(content: string, maxBytes: number): { body: string; truncated: boolean } {
   const buffer = Buffer.from(content, "utf8");
   if (buffer.byteLength <= maxBytes) {
@@ -14,24 +37,32 @@ function truncateUtf8(content: string, maxBytes: number): { body: string; trunca
   };
 }
 
+function sliceLines(content: string, start: number, end: number): string {
+  const lines = content.split("\n");
+  return lines.slice(start - 1, end).join("\n");
+}
+
 export async function inspectFiles(root: string, filePaths: string[], maxBytes = 12000): Promise<string> {
   if (filePaths.length === 0) {
     throw new Error("Provide at least one file to inspect.");
   }
 
   const sections = await Promise.all(
-    filePaths.map(async (inputPath) => {
-      const { absolutePath, relativePath } = resolveRepoPath(root, inputPath);
+    filePaths.map(async (input) => {
+      const spec = parseSpec(input);
+      const { absolutePath, relativePath } = resolveRepoPath(root, spec.filePath);
       const stat = await fs.stat(absolutePath);
       if (!stat.isFile()) {
-        throw new Error(`Not a file: ${inputPath}`);
+        throw new Error(`Not a file: ${spec.inputPath}`);
       }
 
       const content = await fs.readFile(absolutePath, "utf8");
-      const { body, truncated } = truncateUtf8(content, maxBytes);
+      const sliced = spec.range ? sliceLines(content, spec.range.start, spec.range.end) : content;
+      const { body, truncated } = truncateUtf8(sliced, maxBytes);
       const suffix = truncated ? "\n\n[truncated]" : "";
+      const header = spec.range ? `${relativePath}:${spec.range.start}-${spec.range.end}` : relativePath;
 
-      return `## ${relativePath}\n\n\`\`\`\n${body}${suffix}\n\`\`\``;
+      return `## ${header}\n\n\`\`\`\n${body}${suffix}\n\`\`\``;
     })
   );
 
