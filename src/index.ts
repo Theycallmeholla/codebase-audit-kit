@@ -2,6 +2,7 @@
 
 import { Command } from "commander";
 import pc from "picocolors";
+import { cleanAuditArtifacts } from "./lib/clean.js";
 import { runDoctor } from "./lib/doctor.js";
 import { initProject } from "./lib/init.js";
 import { inspectFiles } from "./lib/inspect.js";
@@ -14,11 +15,21 @@ import { createClaudePrompt } from "./lib/prompt.js";
 import { createReport } from "./lib/report.js";
 
 const program = new Command();
+const packageName = "codebase-audit-kit";
+const packageVersion = "0.1.0";
 
 program
   .name("audit-kit")
   .description("Token-efficient codebase audit CLI: cheap signals -> map -> attack surfaces -> ledger -> Claude prompt")
-  .version("0.1.0");
+  .version(packageVersion);
+
+program
+  .command("version")
+  .description("Print audit-kit and runtime version info")
+  .action(() => {
+    console.log(`${packageName} ${packageVersion}`);
+    console.log(`node ${process.version}`);
+  });
 
 program
   .command("init")
@@ -33,12 +44,36 @@ program
   .command("doctor")
   .description("Check required and optional local audit tools")
   .option("-p, --path <path>", "target repo path", process.cwd())
+  .option("--json", "print machine-readable output")
   .action(async (opts) => {
     const result = await runDoctor(opts.path);
-    console.log(result.output);
+    console.log(opts.json ? JSON.stringify(result.json, null, 2) : result.output);
     if (!result.ok) {
       process.exitCode = 1;
     }
+  });
+
+program
+  .command("clean")
+  .description("Remove generated audit artifacts")
+  .option("-p, --path <path>", "target repo path", process.cwd())
+  .option("--all", "remove the entire .audit-kit directory")
+  .option("--force", "perform the removal")
+  .action(async (opts) => {
+    const result = await cleanAuditArtifacts(opts.path, { all: Boolean(opts.all), force: Boolean(opts.force) });
+    if (result.dryRun) {
+      console.log("Would remove:");
+      console.log(result.removed.join("\n"));
+      return;
+    }
+
+    if (result.removed.length === 0) {
+      console.log("Nothing removed.");
+      return;
+    }
+
+    console.log("Removed:");
+    console.log(result.removed.join("\n"));
   });
 
 program

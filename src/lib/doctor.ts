@@ -15,6 +15,13 @@ type ToolStatus = ToolCheck & {
 export type DoctorResult = {
   ok: boolean;
   output: string;
+  json: {
+    ok: boolean;
+    requiredTools: ToolStatus[];
+    optionalTools: ToolStatus[];
+    missingRequired: string[];
+    missingOptional: string[];
+  };
 };
 
 const toolChecks: ToolCheck[] = [
@@ -64,6 +71,13 @@ export async function runDoctor(root: string): Promise<DoctorResult> {
 
   return {
     ok: missingRequired.length === 0,
-    output
+    output,
+    json: {
+      ok: missingRequired.length === 0,
+      requiredTools: statuses.filter((tool) => tool.required),
+      optionalTools: statuses.filter((tool) => !tool.required),
+      missingRequired: missingRequired.map((tool) => tool.name),
+      missingOptional: statuses.filter((tool) => !tool.required && !tool.available).map((tool) => tool.name)
+    }
   };
 }

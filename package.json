@@ -2,7 +2,28 @@
   "name": "codebase-audit-kit",
   "version": "0.1.0",
   "description": "Token-efficient codebase audit CLI. Cheap signals first, targeted reads later.",
+  "author": "Cursive Media",
+  "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cursivemedia/codebase-audit-kit.git"
+  },
+  "keywords": [
+    "audit",
+    "cli",
+    "codebase",
+    "security",
+    "triage",
+    "developer-tools"
+  ],
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "package.json"
+  ],
   "bin": {
     "audit-kit": "./dist/index.js"
   },
@@ -11,7 +32,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "check": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepack": "npm run check && npm run test && npm run build"
   },
   "dependencies": {
     "commander": "^12.1.0",

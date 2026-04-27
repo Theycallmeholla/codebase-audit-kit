@@ -8,7 +8,7 @@ The mistake is reading code first. This tool forces the better workflow:
 cheap signals -> next -> inspect -> Claude -> ledger:add -> report
 ```
 
-## Install
+## Installation
 
 ```bash
 npm install
@@ -22,7 +22,17 @@ Or run locally:
 npm run dev -- init
 ```
 
-## Workflow
+## Quickstart
+
+```bash
+audit-kit version
+audit-kit doctor
+audit-kit init
+audit-kit scan --json
+audit-kit next auth
+```
+
+## Full Workflow
 
 Inside the repo you want to audit:
 
@@ -40,6 +50,29 @@ audit-kit report
 ```
 
 Then paste `.audit-kit/prompts/claude-auth-*.md` into Claude Code.
+
+## Safety Model
+
+- Cheap signals first, source inspection second.
+- `inspect` rejects paths outside the target repo root.
+- Generated artifacts stay under the target repo’s `.audit-kit/`.
+- `clean` requires `--force` before it removes anything.
+
+## Generated Files
+
+```text
+.audit-kit/
+  config.json
+  ledger.json
+  latest-scan.md
+  latest-scan.json
+  repo-map.md
+  scans/
+  prompts/
+  surfaces/
+  inspections/
+  reports/
+```
 
 ## Commands
 
@@ -85,6 +118,8 @@ Checks local dependencies before an audit run.
 - optional: `tree`, `cloc`
 
 Missing optional tools print install hints. Missing required tools exit nonzero.
+
+Use `audit-kit doctor --json` for machine-readable health checks.
 
 ### `audit-kit surface:list`
 
@@ -152,6 +187,18 @@ Builds a markdown audit report from:
 
 Writes `.audit-kit/reports/report-<timestamp>.md`.
 
+### `audit-kit version`
+
+Prints package name, package version, and current Node version.
+
+### `audit-kit clean`
+
+Without `--force`, prints what would be removed.
+
+- default: removes generated `scans`, `prompts`, `inspections`, and `reports`
+- `--all --force`: removes the entire `.audit-kit/` directory
+- preserves `config.json`, `ledger.json`, and `repo-map.md` unless `--all` is used
+
 ## Smoke Test Another Repo
 
 ```bash
@@ -179,6 +226,15 @@ node dist/index.js map -p /tmp/audit-kit-smoke-target --from-json
 node dist/index.js next -p /tmp/audit-kit-smoke-target auth
 node dist/index.js inspect -p /tmp/audit-kit-smoke-target src/index.ts
 ```
+
+## Publishing / Local Development
+
+```bash
+npm run prepack
+npm pack --dry-run
+```
+
+`prepack` runs typecheck, tests, and build before packaging.
 
 ### `audit-kit ledger:add`
 
