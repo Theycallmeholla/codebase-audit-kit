@@ -38,6 +38,45 @@ async function uniqueFilesInspected(root: string, findings: Finding[]): Promise<
   return [...new Set([...fromLedger, ...fromInspections])].sort();
 }
 
+const scopeSectionsAllowed = new Set([
+  "Stack",
+  "Entry Points",
+  "Risk Surfaces",
+  "Files Earned For Inspection"
+]);
+
+function trimRepoMapScope(repoMap: string): string {
+  const lines = repoMap.split("\n");
+  const titleMatch = repoMap.match(/^#\s+(.+)$/m);
+  const title = titleMatch ? `# ${titleMatch[1].trim()}` : "# Repo Map";
+
+  const sections: string[] = [];
+  let current: { name: string; body: string[] } | null = null;
+
+  for (const line of lines) {
+    const heading = line.match(/^##\s+(.+?)\s*$/);
+    if (heading) {
+      if (current && scopeSectionsAllowed.has(current.name)) {
+        sections.push(`## ${current.name}\n${current.body.join("\n").trimEnd()}`);
+      }
+      current = { name: heading[1].trim(), body: [] };
+      continue;
+    }
+    if (current) {
+      current.body.push(line);
+    }
+  }
+  if (current && scopeSectionsAllowed.has(current.name)) {
+    sections.push(`## ${current.name}\n${current.body.join("\n").trimEnd()}`);
+  }
+
+  if (sections.length === 0) {
+    return `${title}\n\nRepo map skeleton in use; no scope sections recorded yet.`;
+  }
+
+  return [title, "", ...sections.map((section) => section.trim())].join("\n\n").trim();
+}
+
 function recommendedFixOrder(findings: Finding[]): Finding[] {
   return [...sortFindings(findings)].sort((a, b) => {
     if (a.severity !== b.severity) {
@@ -80,7 +119,8 @@ function renderFindings(findings: Finding[]): string {
 export async function createReport(root: string): Promise<string> {
   const ledger = await readLedger(root);
   const repoMapPath = path.join(auditDir(root), "repo-map.md");
-  const repoMap = (await exists(repoMapPath)) ? await readText(repoMapPath) : "Repo map not available.";
+  const repoMapRaw = (await exists(repoMapPath)) ? await readText(repoMapPath) : "";
+  const scope = repoMapRaw ? trimRepoMapScope(repoMapRaw) : "Repo map not available.";
   const findings = sortFindings(ledger.findings);
   const severityBreakdown = getSeverityBreakdown(findings);
   const fixOrder = recommendedFixOrder(findings);
@@ -97,9 +137,7 @@ ${findings.length === 0 ? "No confirmed findings yet." : `${findings.length} con
 
 ## Scope
 
-\`\`\`
-${repoMap.slice(0, 8000)}
-\`\`\`
+${scope}
 
 ## Severity Breakdown
 

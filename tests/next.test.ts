@@ -142,6 +142,23 @@ describe("createNextPrompt", () => {
     expect(errorsTop).toContain("Next.js API route boundary.");
   });
 
+  it("ranks Next.js API routes for auth even with no auth keywords in the file", async () => {
+    const root = await makeTempDir("audit-kit-next-");
+    await initProject(root);
+    await ensureDir(path.join(root, "app", "api", "upload"));
+    await writeFile(path.join(root, "next.config.js"), "module.exports = {};\n", "utf8");
+    await writeFile(
+      path.join(root, "app", "api", "upload", "route.ts"),
+      "import { put } from '@vercel/blob';\nexport async function POST(req) { return Response.json(await put('x', req.body, { access: 'public' })); }\n",
+      "utf8"
+    );
+
+    const top = candidateBlock(await createNextFor(root, "auth"));
+
+    expect(top).toContain("app/api/upload/route.ts");
+    expect(top).toContain("Next.js API route auth boundary.");
+  });
+
   it("boosts Next.js pages and forms for ux", async () => {
     const root = await makeTempDir("audit-kit-next-");
     await initProject(root);

@@ -94,4 +94,78 @@ describe("report", () => {
     expect(appendix).toContain("- src/gamma.ts");
     expect(appendix.match(/- src\/alpha\.ts/g)?.length ?? 0).toBe(1);
   });
+
+  it("strips scan dump and grep signals from the report Scope", async () => {
+    const root = await makeTempDir("audit-kit-report-");
+    await initProject(root);
+
+    const repoMap = [
+      "# Repo Map",
+      "",
+      "## Stack",
+      "",
+      "- Language: TypeScript",
+      "- Framework: Next.js",
+      "",
+      "## Entry Points",
+      "",
+      "- API routes: app/api/*",
+      "",
+      "## Risk Surfaces",
+      "",
+      "1. Auth / permissions:",
+      "",
+      "## Hot Files",
+      "",
+      "| File | Reason | Surface |",
+      "|---|---|---|",
+      "| src/lib/scan.ts | churn | auth |",
+      "",
+      "## Files Earned For Inspection",
+      "",
+      "| File | Why it earned inspection | Question to answer |",
+      "|---|---|---|",
+      "| lib/auth.ts | next-auth config | session trust |",
+      "",
+      "## Notes From Latest Scan",
+      "",
+      "```",
+      "Generated: 2026-04-27",
+      "Grep signals:",
+      "- auth: ./lib/auth.ts:1:import { getServerSession }",
+      "- secrets: ./lib/auth.ts:33: name: '__Secure-next-auth.session-token'",
+      "- env-vars: ./lib/auth.ts:6: process.env.VERCEL_URL",
+      "```"
+    ].join("\n");
+
+    await writeText(path.join(root, ".audit-kit", "repo-map.md"), repoMap);
+
+    const out = await createReport(root);
+    const content = await readFile(out, "utf8");
+    const scope = content.split("## Scope")[1]?.split("## Severity Breakdown")[0] ?? "";
+
+    expect(scope).toContain("## Stack");
+    expect(scope).toContain("## Entry Points");
+    expect(scope).toContain("## Risk Surfaces");
+    expect(scope).toContain("## Files Earned For Inspection");
+    expect(scope).toContain("- Language: TypeScript");
+    expect(scope).not.toContain("Notes From Latest Scan");
+    expect(scope).not.toContain("Grep signals");
+    expect(scope).not.toContain("getServerSession");
+    expect(scope).not.toContain("__Secure-next-auth.session-token");
+    expect(scope).not.toContain("Hot Files");
+  });
+
+  it("keeps Scope short when repo-map is the empty skeleton", async () => {
+    const root = await makeTempDir("audit-kit-report-");
+    await initProject(root);
+    await writeText(path.join(root, ".audit-kit", "repo-map.md"), "# Repo Map\n\nThis file is intentionally compact.\n");
+
+    const out = await createReport(root);
+    const content = await readFile(out, "utf8");
+    const scope = content.split("## Scope")[1]?.split("## Severity Breakdown")[0] ?? "";
+
+    expect(scope.split("\n").length).toBeLessThan(20);
+    expect(scope).not.toContain("Grep signals");
+  });
 });

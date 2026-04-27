@@ -173,6 +173,15 @@ audit-kit inspect src/index.ts:1-80 src/lib/scan.ts:120-220
 
 Range headers in the output include the exact span (`## src/index.ts:1-80`) so the report appendix can show what was inspected.
 
+#### Shell quoting
+
+In zsh, quote paths containing brackets, parentheses, spaces, or globs so the shell does not glob-expand them before audit-kit sees the argument:
+
+```bash
+audit-kit inspect "app/api/domain/[slug]/verify/route.ts:1-120"
+audit-kit inspect "components/(marketing)/hero.tsx"
+```
+
 ### `audit-kit prompt <surface>`
 
 Creates a Claude-ready prompt using:
@@ -266,6 +275,19 @@ audit-kit ledger:add \
   --next-file "src/jobs/reconcile-payments.ts" \
   --open-question "Is there any upstream idempotency key storage?" \
   --files-inspected src/api/stripe/webhook.ts src/jobs/reconcile-payments.ts
+```
+
+In zsh, quote paths containing brackets, parentheses, spaces, or globs in `--file` and `--files-inspected` so the shell does not glob-expand them:
+
+```bash
+audit-kit ledger:add \
+  --surface auth \
+  --severity P1 \
+  --title "Unauthenticated domain verification endpoint" \
+  --file "app/api/domain/[slug]/verify/route.ts" \
+  --evidence "GET handler hits Vercel verify API without session or ownership check" \
+  --fix "Require getSession() and ownership check before calling Vercel APIs" \
+  --files-inspected "app/api/domain/[slug]/verify/route.ts" middleware.ts lib/auth.ts
 ```
 
 ### `audit-kit ledger:list`

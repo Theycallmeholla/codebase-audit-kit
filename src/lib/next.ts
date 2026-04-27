@@ -145,8 +145,9 @@ function nextJsStructuralReason(file: string, surface: string): string | undefin
   if (/^middleware\.(ts|js)$/.test(normalized) && ["auth", "cache", "errors"].includes(surface)) {
     return "Next.js auth/cache boundary: middleware.";
   }
-  if (/^app\/api\/.+\/route\.(ts|js)$/.test(normalized) && ["auth", "external", "uploads", "errors"].includes(surface)) {
-    return "Next.js API route boundary.";
+  if (/^app\/api\/.+\/route\.(ts|js)$/.test(normalized)) {
+    if (surface === "auth") return "Next.js API route auth boundary.";
+    if (["external", "uploads", "errors"].includes(surface)) return "Next.js API route boundary.";
   }
   if ((/^app\/page\.tsx$/.test(normalized) || /^app\/.+\/page\.tsx$/.test(normalized)) && ["ux", "errors"].includes(surface)) {
     return "Next.js UX page component.";
